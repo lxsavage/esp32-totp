@@ -1,6 +1,8 @@
 #ifndef CONSTANTS_HPP_INCLUDED
 #define CONSTANTS_HPP_INCLUDED
 
+#include <stdint.h>
+
 // Pinout for LCD to display codes/status messages
 const int RS = 13;
 const int ENABLE = 14;
@@ -18,6 +20,7 @@ const unsigned long TIME_SYNC_INTERVAL = 86400; // 1 day
 // Other constants
 const int BAUD_RATE = 115200;
 const int TOTP_KEY_MAX = 65;
-const int POLL_MS = 1000;
+
+const uint64_t POLL_NS = 1000000; // 1 second
 
 #endif

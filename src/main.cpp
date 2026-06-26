@@ -150,7 +150,7 @@ load_mode_network:
 
 void setup()
 {
-    esp_sleep_enable_timer_wakeup((uint64_t)POLL_MS * 1000ULL);
+    esp_sleep_enable_timer_wakeup(POLL_NS);
     Serial.begin(BAUD_RATE);
 
     lcd = new hd44780_pinIO(RS, ENABLE, D4, D5, D6, D7);
