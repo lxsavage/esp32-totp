@@ -7,19 +7,19 @@ other TOTP setup using Arduino, found here:
 
 ## Setup
 
-This sketch requires the following libraries:
-
-- [Base32-Decode](https://github.com/dirkx/Arduino-Base32-Decode)
-- [TOTP](https://github.com/lucadentella/TOTP-Arduino)
+> [!NOTE]
+> This project was built on PlatformIO, and was tested using an Expressif ESP32
+> dev board. While other compatible configurations should work, they are
+> currently untested due to me not having other hardware.
 
 The setup of this system is as follows:
 
 1. Wire the [hardware connections](#hardware-connections) as described below to
-   the Arduino
+   the ESP32
 2. Upload the program to the ESP32 and follow the instructions for writing the
    secret/WiFi credentials to the board
 
-### Hardware connections
+### Hardware Connections
 
 > [!NOTE]
 > If following along from
