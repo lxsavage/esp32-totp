@@ -17,18 +17,18 @@
 
 static bool first_time;
 
-static struct storage::PrivateKey decoded_key;
-static struct storage::NetworkData network;
+static struct storage::OTPCode decoded_key;
+static struct storage::WiFiDetails network;
 
 static hd44780_pinIO* lcd = nullptr;
 
 void load_mode()
 {
-    storage::init();
+    struct storage::OTPCode code;
+    struct storage::WiFiDetails network = {.ppk = {'\0'}, .ssid = {'\0'}};
 
-    // Zero this out to prevent uninitialized data from memory from being
-    // written to storage
-    struct storage::PrivateKey key = {.key = {'\0'}};
+    size_t key_len;
+    storage::init();
 
     lcd->clear();
     lcd->setCursor(0, 0);
@@ -48,17 +48,22 @@ void load_mode()
         }
     }
     char key_buf[256];
+    key_len = Serial.readBytesUntil('\n', key_buf, 255);
+    key_buf[key_len] = '\0';
 
-    {
-        size_t key_len = Serial.readBytesUntil('\n', key_buf, 255);
-        key_buf[key_len] = '\0';
-    }
+    totp::decode_totpauth(key_buf, code);
 
-    Serial.print("Secret (base32 encoded): ");
-    Serial.println(key_buf);
+    Serial.print("label [");
+    Serial.print(code.label_len);
+    Serial.print("]: ");
+    Serial.println(code.label);
 
-    key.len = base32decode(key_buf, key.key, TOTP_KEY_MAX);
-    storage::write_privatekey(key);
+    Serial.print("key [");
+    Serial.print(code.key_len);
+    Serial.print("]: ");
+    Serial.println((char*)code.key);
+
+    storage::write_secret(code);
     if (!storage::commit_writes())
     {
         Serial.println("Saving key failed");
@@ -80,13 +85,6 @@ void load_mode()
     delay(2000);
 
 load_mode_network:
-    // Zero these out to prevent uninitialized data from memory from being
-    // written to storage
-    struct storage::NetworkData network = {
-        .ppk = {'\0'},
-        .ssid = {'\0'},
-    };
-
     lcd->clear();
     lcd->setCursor(0, 0);
     lcd->write("LOAD MODE    ...");
@@ -99,10 +97,8 @@ load_mode_network:
         delay(10);
     }
 
-    {
-        size_t key_len = Serial.readBytesUntil('\n', network.ssid, 32);
-        network.ppk[key_len] = '\0';
-    }
+    key_len = Serial.readBytesUntil('\n', network.ssid, 32);
+    network.ppk[key_len] = '\0';
 
     Serial.print("SSID: ");
     Serial.println(network.ssid);
@@ -119,15 +115,13 @@ load_mode_network:
         delay(10);
     }
 
-    {
-        size_t key_len = Serial.readBytesUntil('\n', network.ppk, 64);
-        network.ppk[key_len] = '\0';
-    }
+    key_len = Serial.readBytesUntil('\n', network.ppk, 64);
+    network.ppk[key_len] = '\0';
 
     Serial.print("PPK: ");
     Serial.println(network.ppk);
 
-    storage::write_wifi(network);
+    storage::write_secret(network);
     if (!storage::commit_writes())
     {
         Serial.println("Saving network failed");
@@ -157,7 +151,6 @@ void setup()
     lcd->begin(16, 2);
 
     pinMode(LOAD_BTN, INPUT);
-
     if (digitalRead(LOAD_BTN) == HIGH)
     {
         load_mode();
@@ -168,20 +161,42 @@ void setup()
     storage::load_wifi(network);
     storage::load_privatekey(decoded_key);
 
-    Serial.print("SSID: ");
-    Serial.println(network.ssid);
+    Serial.print("Syncing time using WiFi network \"");
+    Serial.print(network.ssid);
+    Serial.println("\"");
+
     totp::init();
 
     lcd->clear();
     lcd->setCursor(0, 0);
-    lcd->write("Waiting for");
+
+    if (decoded_key.label_len == 0)
+    {
+        lcd->write("Waiting for");
+        lcd->setCursor(0, 1);
+        lcd->write("NTP sync...");
+        first_time = rtc::sync(network);
+        return;
+    }
+
+    lcd->write("TOTP for");
     lcd->setCursor(0, 1);
-    lcd->write("NTP sync...");
+    lcd->write(decoded_key.label);
+
+    // Sync WiFi, and otherwise delay for at least 2000 milliseconds so that the
+    // user can see the label
+    unsigned long sync_start_ts = millis();
+    first_time = rtc::sync(network);
+    unsigned long sync_end_ts = millis();
+
+    if (sync_end_ts - sync_start_ts > LABEL_READ_TIME)
+        return;
+
+    delay(LABEL_READ_TIME - sync_end_ts - sync_start_ts);
 }
 
 void loop()
 {
-    first_time = rtc::sync(network);
     if (!rtc::ready())
     {
         if (first_time)
@@ -215,7 +230,7 @@ void loop()
     unsigned long now = rtc::get();
 
     static char code_buf[7];
-    if (!totp::generate(decoded_key.key, decoded_key.len, now, code_buf))
+    if (!totp::generate(decoded_key.key, decoded_key.key_len, now, code_buf))
     {
         Serial.println("Failed to generate TOTP code");
         esp_light_sleep_start();
@@ -236,5 +251,7 @@ void loop()
     lcd->write(exp_buf);
 
     esp_light_sleep_start();
-    first_time = false;
+
+    // Poll to see if the clock needs to sync and sync if necessary
+    first_time = rtc::sync(network);
 }

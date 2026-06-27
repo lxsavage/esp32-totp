@@ -7,13 +7,15 @@
 
 namespace storage
 {
-struct PrivateKey
+struct OTPCode
 {
-    size_t len;
-    unsigned char key[TOTP_KEY_MAX];
+    size_t label_len;
+    size_t key_len;
+    char label[256];
+    unsigned char key[65];
 };
 
-struct NetworkData
+struct WiFiDetails
 {
     char ppk[64];
     char ssid[32];
@@ -23,16 +25,16 @@ struct NetworkData
 void init();
 
 // Get the TOTP secret from storage
-void load_privatekey(struct PrivateKey& out);
+void load_privatekey(struct OTPCode& out);
 
 // Get the WiFi credentials from storage
-void load_wifi(struct NetworkData& out);
+void load_wifi(struct WiFiDetails& out);
 
 // Write a new secret to storage
-void write_privatekey(struct PrivateKey& in);
+void write_secret(struct OTPCode& in);
 
 // Write new WiFi credentials to storage
-void write_wifi(struct NetworkData& in);
+void write_secret(struct WiFiDetails& in);
 
 // Apply any pending write calls to storage
 bool commit_writes();

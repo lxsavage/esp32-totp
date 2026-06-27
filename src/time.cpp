@@ -17,7 +17,7 @@ static NTPClient timeClient(ntpUDP);
 static uint64_t start_ts;
 static uint64_t last_sync_microsec;
 
-bool sync(struct storage::NetworkData& wifi)
+bool sync(struct storage::WiFiDetails& wifi)
 {
     uint64_t now = esp_timer_get_time();
 
@@ -28,7 +28,7 @@ bool sync(struct storage::NetworkData& wifi)
 
     // Should skip processing if already set at least once, and
     // TIME_SYNC_INTERVAL has not been reached yet
-    if (start_ts && (now - last_sync_microsec) / 1000 < TIME_SYNC_INTERVAL)
+    if (start_ts && (now - last_sync_microsec) / 1000 < TIME_SYNC_INTERVAL_SEC)
     {
         return false;
     }

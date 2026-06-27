@@ -4,7 +4,7 @@
 namespace rtc
 {
 // Sync the clock to the current time
-bool sync(struct storage::NetworkData& wifi);
+bool sync(struct storage::WiFiDetails& wifi);
 
 // Get whether the time has been configured yet
 bool ready();
