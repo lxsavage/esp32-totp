@@ -19,7 +19,7 @@ const int LOAD_BTN = 21;
 const int64_t TIME_SYNC_INTERVAL_SEC = 86400; // 1 day
 
 // Minimum amount of time to display label before code (if applicable)
-const int64_t LABEL_READ_TIME = 2000; // 2 seconds
+const int64_t LABEL_READ_TIME = 1500; // 1.5 seconds
 
 // Other constants
 const int BAUD_RATE = 115200;

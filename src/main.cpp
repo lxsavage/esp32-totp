@@ -56,8 +56,6 @@ void loop()
 
 void setup()
 {
-    // initArduino();
-
     esp_sleep_enable_timer_wakeup(TOTP_POLL_NS);
     Serial.begin(BAUD_RATE);
 
@@ -114,33 +112,35 @@ void setup()
 
         // Unrecoverable: lock until manual reset
         esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ALL);
-        delay(100);
         esp_deep_sleep_start();
     }
 
     // Early return for no label; don't need to worry about reading a label!
     if (decoded_key.label_len == 0)
+    {
+        lcd->clear();
+        lcd->setCursor(0, 1);
+        lcd->write("Expires in   s");
+        vTaskDelay(pdMS_TO_TICKS(100));
         return;
+    }
 
     int64_t sync_end_ts = esp_timer_get_time() / 1000;
-    if (sync_end_ts - sync_start_ts > LABEL_READ_TIME)
-        return;
+    if (sync_end_ts - sync_start_ts < LABEL_READ_TIME - 100)
+        delay(LABEL_READ_TIME - 100 - (sync_end_ts - sync_start_ts));
 
-    delay(LABEL_READ_TIME - sync_end_ts - sync_start_ts);
-
-    // Print a static TOTP text mask to prevent redrawing every letter every
-    // loop iteration to reduce text dimming from unnecessary updates
     lcd->clear();
     lcd->setCursor(0, 1);
     lcd->write("Expires in   s");
-
-    // Max-priority task for the main update loop
-    // xTaskCreatePinnedToCore(task_totp_sync, "main_loop", 1000, NULL,
-    //                         configMAX_PRIORITIES - 1, NULL, tskNO_AFFINITY);
+    vTaskDelay(pdMS_TO_TICKS(100));
 }
 
 void load_mode()
 {
+    // this excessively long timeout allows for details to be manually typed out
+    // and will be reset afterwards with ESP.restart() in setup
+    Serial.setTimeout(60000);
+
     struct storage::OTPCode code;
     struct storage::WiFiDetails network = {.ppk = {'\0'}, .ssid = {'\0'}};
 
@@ -154,11 +154,12 @@ void load_mode()
     lcd->write("Waiting for key");
     Serial.println("Waiting for key...");
 
-    unsigned long debounce_helper = millis();
+    int64_t debounce_helper = esp_timer_get_time();
     while (!Serial.available())
     {
-        delay(10);
-        if (millis() - debounce_helper > 2000 && digitalRead(LOAD_BTN) == HIGH)
+        vTaskDelay(pdMS_TO_TICKS(10));
+        if (esp_timer_get_time() - debounce_helper > 2000000 &&
+            digitalRead(LOAD_BTN) == HIGH)
         {
             Serial.println("Skipped new key loading");
             goto load_mode_network;
@@ -189,7 +190,7 @@ void load_mode()
         lcd->write("ERROR");
         lcd->setCursor(0, 1);
         lcd->write("Key not saved");
-        delay(2000);
+        vTaskDelay(pdMS_TO_TICKS(2000));
         return;
     }
     Serial.println("Key commit successful");
@@ -199,7 +200,7 @@ void load_mode()
     lcd->write("LOAD MODE");
     lcd->setCursor(0, 1);
     lcd->write("Saved key!");
-    delay(2000);
+    vTaskDelay(pdMS_TO_TICKS(2000));
 
 load_mode_network:
     lcd->clear();
@@ -211,7 +212,7 @@ load_mode_network:
 
     while (!Serial.available())
     {
-        delay(10);
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 
     key_len = Serial.readBytesUntil('\n', network.ssid, 32);
@@ -229,7 +230,7 @@ load_mode_network:
 
     while (!Serial.available())
     {
-        delay(10);
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 
     key_len = Serial.readBytesUntil('\n', network.ppk, 64);
@@ -247,7 +248,7 @@ load_mode_network:
         lcd->write("ERROR");
         lcd->setCursor(0, 1);
         lcd->write("Network not saved");
-        delay(2000);
+        vTaskDelay(pdMS_TO_TICKS(2000));
         return;
     }
 
@@ -256,5 +257,5 @@ load_mode_network:
     lcd->write("LOAD MODE");
     lcd->setCursor(0, 1);
     lcd->write("Saved network!");
-    delay(2000);
+    vTaskDelay(pdMS_TO_TICKS(2000));
 }

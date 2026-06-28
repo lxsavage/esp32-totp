@@ -53,7 +53,7 @@ bool sync(struct storage::WiFiDetails* wifi, bool print_errors)
             return false;
         }
 
-        delay(100);
+        vTaskDelay(pdMS_TO_TICKS(100));
     }
 
     timeClient.begin();
