@@ -36,8 +36,8 @@ V0  -> POT middle
 RS  -> GPIO13
 RW  -> GND
 E   -> GPIO14
-D4  -> GPIO25
-D5  -> GPIO26
+D4  -> GPIO26
+D5  -> GPIO25
 D6  -> GPIO18
 D7  -> GPIO19
 A   -> 220Ω resistor -> 5V

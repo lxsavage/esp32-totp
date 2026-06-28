@@ -1,8 +1,8 @@
 #include <Arduino.h>
 
 #include "constants.hpp"
+#include "rtc.hpp"
 #include "storage.hpp"
-#include "time.hpp"
 
 #include <EEPROM.h>
 #include <NTPClient.h>
@@ -17,8 +17,12 @@ static NTPClient timeClient(ntpUDP);
 static uint64_t start_ts;
 static uint64_t last_sync_microsec;
 
-bool sync(struct storage::WiFiDetails& wifi)
+bool sync(struct storage::WiFiDetails* wifi, bool print_errors)
 {
+    // note that the wifi param is explicitly a pointer to allow for nulls; in
+    // the future, this is to support other external scenarios outside of WiFi
+    // for synchronizing the RTC
+
     uint64_t now = esp_timer_get_time();
 
     // Restart the ESP32 if the millis has overflowed; easier to do it this way
@@ -34,12 +38,18 @@ bool sync(struct storage::WiFiDetails& wifi)
     }
 
     WiFi.mode(WIFI_STA);
-    WiFi.begin(wifi.ssid, wifi.ppk);
+    WiFi.begin(wifi->ssid, wifi->ppk);
     while (WiFi.status() != WL_CONNECTED)
     {
         if (WiFi.status() == WL_NO_SSID_AVAIL ||
             WiFi.status() == WL_CONNECT_FAILED)
         {
+            WiFi.disconnect(true);
+            WiFi.mode(WIFI_OFF);
+
+            if (print_errors)
+                Serial.println("ERROR: failed to connect to WiFi with provided "
+                               "credentials");
             return false;
         }
 
@@ -52,10 +62,8 @@ bool sync(struct storage::WiFiDetails& wifi)
     last_sync_microsec = esp_timer_get_time();
     start_ts = (uint64_t)timeClient.getEpochTime() * 1000000;
 
-    // Disable wifi to save power
     WiFi.disconnect(true);
     WiFi.mode(WIFI_OFF);
-
     return true;
 }
 
